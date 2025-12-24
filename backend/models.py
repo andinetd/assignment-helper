@@ -29,7 +29,7 @@ class AnalysisResult(Base):
     __tablename__ = "analysis_results"
     id = Column(Integer, primary_key=True)
     assignment_id = Column(Integer, ForeignKey("assignments.id"), unique=True)
-    suggested_sources = Column(JSON) # JSONB in Postgres
+    suggested_sources = Column(JSON) 
     plagiarism_score = Column(Float)
     flagged_sections = Column(JSON)
     research_suggestions = Column(Text)
@@ -45,5 +45,5 @@ class AcademicSource(Base):
     publication_year = Column(Integer)
     abstract = Column(Text)
     full_text = Column(Text)
-    source_type = Column(String) # 'paper', 'textbook', etc.
-    embedding = Column(Vector(768)) # Match nomic-embed-text size
+    source_type = Column(String) 
+    embedding = Column(Vector(768)) 

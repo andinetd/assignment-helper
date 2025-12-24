@@ -79,30 +79,24 @@ async def upload_assignment(
     db: Session = Depends(get_db)
 ):
     try:
-        # 1. GET STUDENT
         user = db.query(models.Student).filter(models.Student.email == current_user['email']).first()
         
-        # 2. READ FILE CONTENT ONCE (Important!)
-        # We store it in memory so we don't exhaust the stream
+    
         file_content = await file.read()
         
-        # 3. GENERATE HASH FOR REDIS
         import hashlib
         file_hash = hashlib.md5(file_content).hexdigest()
         cache_key = f"analysis:{file_hash}"
 
-        # 4. REDIS CHECK
         try:
             cached_result = redis_client.get(cache_key)
             if cached_result:
                 return {"job_id": "cached", "status": "completed", "results": json.loads(cached_result)}
         except: pass
 
-        # 5. PREVIEW & CLEAN TEXT (For RAG and DB storage)
         decoded_text = file_content.decode('utf-8', errors='ignore')
         clean_text = "".join(c for c in decoded_text if c.isprintable() or c in "\n\r\t").replace('\x00', '')
 
-        # 6. RAG CONTEXT SEARCH
         context_str = "No specific context found."
         try:
             sources = rag_service.search_sources(db, clean_text[:800], limit=2)
@@ -110,7 +104,6 @@ async def upload_assignment(
                 context_str = "\n".join([f"Source: {s.title}" for s in sources])
         except: pass
 
-        # 7. SAVE TO POSTGRES
         new_assignment = models.Assignment(
             student_id=user.id,
             filename=file.filename,
@@ -120,10 +113,8 @@ async def upload_assignment(
         db.commit()
         db.refresh(new_assignment)
 
-        # 8. TRIGGER n8n (THE CRITICAL FIX)
         n8n_url = os.getenv("N8N_WEBHOOK_URL")
         if n8n_url:
-            # We must send metadata in 'data' and the file in 'files'
             payload = {
                 "assignment_id": str(new_assignment.id),
                 "file_hash": str(file_hash),
@@ -131,14 +122,11 @@ async def upload_assignment(
                 "rag_context": str(context_str)
             }
             
-            # Format the file tuple correctly: (filename, bytes, content-type)
             files = {
                 'file': (file.filename, file_content, 'application/pdf')
             }
 
             try:
-                # Use a timeout=1 to "fire and forget" so the UI doesn't hang
-                # We catch the timeout exception because n8n is slow to respond
                 requests.post(n8n_url, data=payload, files=files, timeout=1)
             except requests.exceptions.ReadTimeout:
                 pass 
