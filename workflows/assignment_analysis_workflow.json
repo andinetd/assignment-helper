@@ -1,0 +1,160 @@
+{
+  "name": "Academic RAG Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "assignment",
+        "options": {}
+      },
+      "id": "node_1",
+      "name": "1. Webhook (Start)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [0, 200]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "file"
+      },
+      "id": "node_2",
+      "name": "2. Extract Text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/embed",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"model\": \"nomic-embed-text\", \"input\": $json.text.substring(0, 1000) }) }}"
+      },
+      "id": "node_3",
+      "name": "3. Embed (768 dim)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [400, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "/* Pad 768 vector to 1536 for DB compatibility */\nlet vector = $json.embeddings[0];\nconst targetDim = 1536;\nwhile (vector.length < targetDim) { vector.push(0); }\nreturn { padded_vector: vector };"
+      },
+      "id": "node_4",
+      "name": "4. Padding Hack",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=SELECT json_agg(t) as aggregated_sources FROM (SELECT title, full_text, (embedding <=> '[{{ $json.padded_vector }}]') as distance FROM academic_sources ORDER BY distance LIMIT 2) t;"
+      },
+      "id": "node_5",
+      "name": "5. Vector Search",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.2,
+      "position": [800, 200],
+      "credentials": {
+        "postgresDb": {
+          "id": "YOUR_POSTGRES_ID",
+          "name": "Postgres DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ \"model\": \"llama3\", \"prompt\": \"Analyze assignment: \" + $node[\"2. Extract Text\"].json.text.substring(0, 2000) + \" Context: \" + JSON.stringify($json.aggregated_sources), \"format\": \"json\", \"stream\": false }) }}"
+      },
+      "id": "node_6",
+      "name": "6. AI Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "/* 1. DATA DEEP HUNT */\nconst startNode = $(\"1. Webhook (Start)\").first().json;\nconst assignment_id = startNode.assignment_id || startNode.body?.assignment_id;\nconst student_email = startNode.student_email || startNode.body?.student_email || \"unknown@student.com\";\nconst file_hash = startNode.file_hash || startNode.body?.file_hash || \"no_hash\";\n\nif (!assignment_id || assignment_id === \"undefined\") {\n    throw new Error(\"Critical Error: No assignment_id found!\");\n}\n\n/* 2. AI PARSING */\nconst aiNode = $(\"6. AI Analysis\").first().json;\nlet ai = {};\ntry { \n    ai = JSON.parse(aiNode.response); \n} catch (e) { \n    ai = { topic: \"Processing Error\", academic_level: \"N/A\", research_suggestions: \"Invalid AI Response\" }; \n}\n\n/* 3. PLAGIARISM CALC */\nconst searchNode = $(\"5. Vector Search\").first().json;\nconst sources = searchNode.aggregated_sources || [];\nconst dist = (sources.length > 0 && sources[0].distance != null) ? sources[0].distance : 1;\nconst plagiarism = Math.max(0, (1 - dist) * 100).toFixed(2);\n\n/* 4. SQL ESCAPING */\nconst clean = (str) => String(str || \"N/A\").replace(/'/g, \"''\");\n\nconst query = `\n  INSERT INTO analysis_results (assignment_id, topic, academic_level, research_suggestions, plagiarism_score, analyzed_at)\n  VALUES (\n    ${assignment_id}, \n    '${clean(ai.topic)}', \n    '${clean(ai.academic_level)}', \n    '${clean(ai.research_suggestions)}', \n    ${plagiarism}, \n    NOW()\n  )\n  ON CONFLICT (assignment_id) \n  DO UPDATE SET \n    topic = EXCLUDED.topic, \n    plagiarism_score = EXCLUDED.plagiarism_score,\n    analyzed_at = NOW();\n`;\n\nreturn { \n  sql_query: query, \n  file_hash: file_hash, \n  student_email: student_email, \n  ai: ai, \n  plagiarism: plagiarism, \n  assignment_id: assignment_id \n};"
+      },
+      "id": "node_7",
+      "name": "7. Generate Logic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql_query }}"
+      },
+      "id": "node_8",
+      "name": "8. Save Postgres",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.2,
+      "position": [1400, 200],
+      "credentials": {
+        "postgresDb": {
+          "id": "YOUR_POSTGRES_ID",
+          "name": "Postgres DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "propertyName": "={{ 'analysis:' + $('7. Generate Logic').item.json.file_hash }}",
+        "propertyValue": "={{ JSON.stringify($('7. Generate Logic').item.json.ai) }}",
+        "type": "string",
+        "options": { "ttl": 3600 }
+      },
+      "id": "node_9",
+      "name": "9. Update Redis",
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [1600, 200],
+      "credentials": {
+        "redis": {
+          "id": "YOUR_REDIS_ID",
+          "name": "Redis Local"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "no-reply@academic-helper.com",
+        "toEmail": "={{ $('7. Generate Logic').item.json.student_email }}",
+        "subject": "=Analysis Complete: {{ $('7. Generate Logic').item.json.ai.topic }}",
+        "html": "=<h2>Assignment Complete</h2><p>Analysis for ID: {{ $('7. Generate Logic').item.json.assignment_id }} is ready.</p><p><b>Topic:</b> {{ $('7. Generate Logic').item.json.ai.topic }}</p><p><b>Plagiarism:</b> {{ $('7. Generate Logic').item.json.plagiarism }}%</p>"
+      },
+      "id": "node_10",
+      "name": "10. Email Student",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [1800, 200],
+      "credentials": {
+        "smtp": {
+          "id": "YOUR_SMTP_ID",
+          "name": "SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "node_1": { "main": [[{ "node": "node_2", "type": "main", "index": 0 }]] },
+    "node_2": { "main": [[{ "node": "node_3", "type": "main", "index": 0 }]] },
+    "node_3": { "main": [[{ "node": "node_4", "type": "main", "index": 0 }]] },
+    "node_4": { "main": [[{ "node": "node_5", "type": "main", "index": 0 }]] },
+    "node_5": { "main": [[{ "node": "node_6", "type": "main", "index": 0 }]] },
+    "node_6": { "main": [[{ "node": "node_7", "type": "main", "index": 0 }]] },
+    "node_7": { "main": [[{ "node": "node_8", "type": "main", "index": 0 }]] },
+    "node_8": { "main": [[{ "node": "node_9", "type": "main", "index": 0 }]] },
+    "node_9": { "main": [[{ "node": "node_10", "type": "main", "index": 0 }]] }
+  }
+}

@@ -10,3 +10,4 @@ pgvector
 requests
 openai
 pydantic
+redis 
