@@ -32,20 +32,7 @@ The system utilizes a **Microservices Architecture** orchestrated with Docker Co
 | **Vector Database** | PostgreSQL + pgvector | Semantic similarity search |
 | **Cache** | Redis | High-speed retrieval using MD5 content hashing |
 
-```mermaid
-graph TD
-    A[User Frontend] -->|Upload PDF| B[Nginx]
-    B -->|API Call| C[FastAPI Backend]
-    C -->|Store Metadata| D[PostgreSQL]
-    C -->|Cache Check| E[Redis]
-    E -->|Cache Hit| C
-    E -->|Cache Miss| F[n8n Workflow]
-    F -->|Generate Embeddings| G[Ollama AI]
-    F -->|Semantic Search| H[pgvector]
-    G -->|Analysis Results| F
-    F -->|Update Results| C
-    C -->|Send Email| I[SMTP Server]
-    C -->|Return Results| A
+![alt text](deepseek_mermaid_20251224_20f97b.png)
 
 ## 🚀 Quick Start & Installation
 
