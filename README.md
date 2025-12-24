@@ -43,7 +43,7 @@ The system utilizes a **Microservices Architecture** orchestrated with Docker Co
 
 ```bash
 # Clone the repository
-git clone <your-repository-url>
+git clone git@github.com:andinetd/assignment-helper.git
 cd academic-assignment-helper
 
 # Create environment configuration
@@ -282,43 +282,6 @@ docker exec redis redis-cli INFO memory
 | Semantic Search | 1-3 seconds | < 100ms |
 | AI Analysis (llama3) | 10-20 seconds | N/A |
 | **Total Processing** | **20-40 seconds** | **< 100ms** |
-
-## 🔮 Future Enhancements
-
-### Planned Features
-- **Batch processing** for multiple assignments
-- **Advanced reporting dashboard** with analytics
-- **Plagiarism trend analysis** across semesters
-- **Integration with learning management systems**
-- **Multi-language support** for international institutions
-
-### Technical Roadmap
-- **Kubernetes deployment** for production scaling
-- **GPU acceleration** for faster embeddings
-- **Alternative LLM support** (GPT-4, Claude, etc.)
-- **Advanced caching strategies** with Redis Cluster
-- **Comprehensive API documentation** with OpenAPI 3.1
-
-## 📄 License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 🙏 Acknowledgments
-
-- **Meta AI** for LLaMA3
-- **n8n team** for workflow automation platform
-- **PostgreSQL/pgvector** community
-- **FastAPI** for the excellent web framework
 
 ---
 
