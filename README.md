@@ -32,61 +32,20 @@ The system utilizes a **Microservices Architecture** orchestrated with Docker Co
 | **Vector Database** | PostgreSQL + pgvector | Semantic similarity search |
 | **Cache** | Redis | High-speed retrieval using MD5 content hashing |
 
-graph TD
 ```mermaid
 graph TD
-    subgraph "Frontend Layer"
-        A[User Frontend<br/>Web Interface]
-    end
-    
-    subgraph "Gateway Layer"
-        B[Nginx<br/>Reverse Proxy]
-    end
-    
-    subgraph "Application Layer"
-        C[FastAPI Backend<br/>Business Logic]
-    end
-    
-    subgraph "Data Layer"
-        D[PostgreSQL<br/>Metadata Storage]
-        H[pgvector<br/>Vector Database]
-        E[Redis<br/>Cache Layer]
-    end
-    
-    subgraph "AI Layer"
-        F[n8n Workflow<br/>Orchestration]
-        G[Ollama AI<br/>LLaMA3 + Embeddings]
-    end
-    
-    subgraph "External Services"
-        I[SMTP Server<br/>Email Notifications]
-    end
-    
-    A -->|1. Upload PDF| B
-    B -->|2. API Request| C
-    C -->|3. Store Metadata| D
-    C -->|4. Cache Check| E
-    
-    E -->|5a. Cache Hit<br/>Return Cached Results| C
-    
-    E -->|5b. Cache Miss| F
-    F -->|6. Generate Embeddings| G
-    F -->|7. Semantic Search| H
-    G -->|8. Analysis Results| F
-    F -->|9. Update Database| C
-    
-    C -->|10. Send Results| I
-    C -->|11. Return Analysis| A
-    
-    style A fill:#e1f5fe
-    style B fill:#f3e5f5
-    style C fill:#e8f5e8
-    style D fill:#fff3e0
-    style E fill:#ffebee
-    style F fill:#e8eaf6
-    style G fill:#f1f8e9
-    style H fill:#fff8e1
-    style I fill:#fce4ec
+    A[User Frontend] -->|Upload PDF| B[Nginx]
+    B -->|API Call| C[FastAPI Backend]
+    C -->|Store Metadata| D[PostgreSQL]
+    C -->|Cache Check| E[Redis]
+    E -->|Cache Hit| C
+    E -->|Cache Miss| F[n8n Workflow]
+    F -->|Generate Embeddings| G[Ollama AI]
+    F -->|Semantic Search| H[pgvector]
+    G -->|Analysis Results| F
+    F -->|Update Results| C
+    C -->|Send Email| I[SMTP Server]
+    C -->|Return Results| A
 
 ## 🚀 Quick Start & Installation
 
