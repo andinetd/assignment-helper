@@ -32,7 +32,7 @@ The system utilizes a **Microservices Architecture** orchestrated with Docker Co
 | **Vector Database** | PostgreSQL + pgvector | Semantic similarity search |
 | **Cache** | Redis | High-speed retrieval using MD5 content hashing |
 
-![alt text](deepseek_mermaid_20251224_20f97b.png)
+![alt text](arch_mermaid_20251224_20f97b.png)
 
 ## 🚀 Quick Start & Installation
 
